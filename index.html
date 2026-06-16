@@ -2490,6 +2490,10 @@ window.simpanUpload = function () {
  
   const reader = new FileReader();
   reader.onload = async (ev) => {
+    // Extract base64 data (remove the data URL prefix)
+    const fullDataUrl = ev.target.result;
+    const base64Data = fullDataUrl.split(',')[1]; // ← EXTRACT JUST THE BASE64
+    
     // 1. Simpan ke localStorage (logika asli)
     if (!S.uploads[opdId]) S.uploads[opdId] = [];
     S.uploads[opdId] = S.uploads[opdId].filter(u => u.dokIdx !== dokIdx);
@@ -2501,8 +2505,8 @@ window.simpanUpload = function () {
       ukuran   : _uplFile.size,
       tgl      : new Date().toISOString(),
       catatan,
-      dataUrl  : ev.target.result,
-      driveUrl : '',   // akan diisi setelah upload GAS
+      dataUrl  : fullDataUrl,  // Keep full URL for local display
+      driveUrl : '',
       driveFileId: '',
     };
     S.uploads[opdId].push(uploadRecord);
@@ -2520,6 +2524,7 @@ window.simpanUpload = function () {
     btn.innerHTML = '<i class="ti ti-upload"></i> Upload';
  
     // 2. Kirim ke GAS (asinkron, tidak blocking UI)
+    // Send BASE64 only, not the full data URL
     const gasResult = await sendToGAS({
       action     : 'uploadFile',
       opdId,
@@ -2531,13 +2536,12 @@ window.simpanUpload = function () {
       fileName   : uploadRecord.nama,
       mimeType   : uploadRecord.tipe,
       ukuran     : uploadRecord.ukuran,
-      base64Data : uploadRecord.dataUrl,
+      base64Data : base64Data,  // ← SEND ONLY BASE64 DATA
       catatan    : uploadRecord.catatan,
       uploadedAt : uploadRecord.tgl,
     });
  
     if (gasResult?.success) {
-      // Simpan driveUrl ke record lokal
       const rec = (S.uploads[opdId] || []).find(u => u.dokIdx === dokIdx);
       if (rec) {
         rec.driveUrl    = gasResult.driveUrl    || '';
